@@ -1,0 +1,70 @@
+diff --git a/hudi-common/src/main/java/org/apache/hudi/avro/HoodieAvroUtils.java b/hudi-common/src/main/java/org/apache/hudi/avro/HoodieAvroUtils.java
+index fdaa466c3..19aeef441 100644
+--- a/hudi-common/src/main/java/org/apache/hudi/avro/HoodieAvroUtils.java
++++ b/hudi-common/src/main/java/org/apache/hudi/avro/HoodieAvroUtils.java
+@@ -68,6 +68,9 @@ import java.util.Map;
+ import java.util.stream.Collectors;
+ import java.util.zip.DeflaterOutputStream;
+ import java.util.zip.InflaterInputStream;
++import java.time.Instant;
++import java.time.temporal.ChronoUnit;
++import java.time.temporal.ChronoField;
+ 
+ /**
+  * Helper class to do common stuff across Avro.
+@@ -460,7 +463,12 @@ public class HoodieAvroUtils {
+       String part = parts[i];
+       Object val = valueNode.get(part);
+       if (val == null) {
+-        break;
++        if (!parts[i].equals("updated_at")) {
++          break;
++        }
++
++        valueNode.put("updated_at", Instant.now().truncatedTo(ChronoUnit.MICROS).getLong(ChronoField.MICRO_OF_SECOND));
++        val = valueNode.get(part);
+       }
+ 
+       // return, if last part of name
+diff --git a/hudi-utilities/src/main/java/org/apache/hudi/utilities/deltastreamer/HoodieMultiTableDeltaStreamer.java b/hudi-utilities/src/main/java/org/apache/hudi/utilities/deltastreamer/HoodieMultiTableDeltaStreamer.java
+index dc150803e..9c06bd5f9 100644
+--- a/hudi-utilities/src/main/java/org/apache/hudi/utilities/deltastreamer/HoodieMultiTableDeltaStreamer.java
++++ b/hudi-utilities/src/main/java/org/apache/hudi/utilities/deltastreamer/HoodieMultiTableDeltaStreamer.java
+@@ -392,6 +392,7 @@ public class HoodieMultiTableDeltaStreamer {
+     logger.info("Ingestion was successful for topics: " + successTables);
+     if (!failedTables.isEmpty()) {
+       logger.info("Ingestion failed for topics: " + failedTables);
++      throw new HoodieException("Ingestion failed for topics: " + failedTables);
+     }
+   }
+ 
+diff --git a/packaging/hudi-spark-bundle/pom.xml b/packaging/hudi-spark-bundle/pom.xml
+index 3544e31bb..605ee4f75 100644
+--- a/packaging/hudi-spark-bundle/pom.xml
++++ b/packaging/hudi-spark-bundle/pom.xml
+@@ -182,6 +182,10 @@
+                   <pattern>com.google.common.</pattern>
+                   <shadedPattern>${spark.bundle.spark.shade.prefix}com.google.common.</shadedPattern>
+                 </relocation>
++                <relocation>
++                  <pattern>com.amazonaws.</pattern>
++                  <shadedPattern>${spark.bundle.spark.shade.prefix}com.amazonaws.</shadedPattern>
++                </relocation>
+                 <!-- TODO: Revisit GH ISSUE #533 & PR#633-->
+               </relocations>
+               <filters>
+diff --git a/packaging/hudi-utilities-bundle/pom.xml b/packaging/hudi-utilities-bundle/pom.xml
+index a3da0a81a..7d600ca96 100644
+--- a/packaging/hudi-utilities-bundle/pom.xml
++++ b/packaging/hudi-utilities-bundle/pom.xml
+@@ -208,6 +208,10 @@
+                   <pattern>org.eclipse.jetty.</pattern>
+                   <shadedPattern>org.apache.hudi.org.eclipse.jetty.</shadedPattern>
+                 </relocation>
++                <relocation>
++                  <pattern>com.amazonaws.</pattern>
++                  <shadedPattern>${spark.bundle.spark.shade.prefix}com.amazonaws.</shadedPattern>
++                </relocation>
+               </relocations>
+               <filters>
+                 <filter>
